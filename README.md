@@ -19,9 +19,13 @@ uv run ruff check .
 uv run ruff format --check .
 ```
 
-Tests run on in-memory SQLite. CI (`.github/workflows/ci.yml`) runs the same commands, checks for
-missing migrations, runs the live smoke (`local-smoke` job, see below), and checks the PR title
-(`BE1-<n>[-<m>]: …`) and the single `Type:` line of the PR body.
+Tests run on in-memory SQLite. To check that no migration is missing:
+
+```bash
+uv run python manage.py makemigrations --check --dry-run --settings=config.settings.test
+```
+
+The live end-to-end smoke is separate; see "Run and verify locally" below.
 
 ## Development server
 
@@ -61,7 +65,7 @@ preflight), and checks every answer of a contract operation against `contract/op
 It prints `ok <method> <path> <status>` per step and `smoke: N/N ok` at the end, exits non-zero on
 the first mismatch, and always stops its server and removes the temp dir. It refuses to start while
 something answers on 8095: run `bin/local-down` first. The unit suite deselects the `smoke` test;
-CI runs it in the `local-smoke` job.
+run it with `bin/local-smoke` or `uv run pytest -m smoke`.
 
 ## Environment
 
