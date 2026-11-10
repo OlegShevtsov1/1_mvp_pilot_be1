@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# Runs a commit of origin (default origin/main) with bin/local-up on 127.0.0.1:8095, on a fresh
+# SQLite database in a temp dir, and drives the whole API journey against it over HTTP
+# (tests/local_smoke.py), checking every answer against contract/openapi.json.
+# Always stops the server and removes the temp dir. Usage: bin/local-smoke [--ref <rev>]
+set -euo pipefail
+
+BIN=$(cd "$(dirname "$0")" && pwd)
+
+if "$BIN/local-check" 2>/dev/null; then
+  echo "local-smoke: 127.0.0.1:8095 is already answering; stop that server (bin/local-down) first" >&2
+  exit 1
+fi
+
+state=$(mktemp -d)
+export PROJECTS_TASKS_API_STATE_DIR=$state
+cleanup() {
+  status=$?
+  if [ "$status" -ne 0 ] && [ -f "$state/gunicorn.log" ]; then
+    echo "local-smoke: last lines of gunicorn.log:" >&2
+    tail -n 30 "$state/gunicorn.log" >&2 || true
+  fi
+  "$BIN/local-down" || true
+  rm -rf "$state"
+  exit "$status"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+# What the journey needs from the server: the web client for /oauth/token, an allowed origin for
+# the CORS preflight, the legacy pair; and nothing sent to GlitchTip.
+export OAUTH_CLIENT_ID=local-smoke-web
+export CORS_ALLOWED_ORIGINS=http://localhost:3000
+export LEGACY_AUTH_ENABLED=true
+unset SENTRY_DSN
+
+"$BIN/local-up" "$@"
+release=$(git -C "$state/app" rev-parse HEAD)
+(
+  cd "$state/app"
+  DJANGO_SETTINGS_MODULE=config.settings.local DATABASE_URL="sqlite:///$state/db.sqlite3" \
+    uv run --no-sync python manage.py oauth_web_application
+)
+
+cd "$BIN/.."
+uv run --frozen python -m tests.local_smoke "$release"
