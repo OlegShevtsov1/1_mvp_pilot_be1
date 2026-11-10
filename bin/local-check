@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# Exits 0 when the local server answers /health with a 2xx.
+set -euo pipefail
+
+curl -fsS -o /dev/null --max-time 5 http://127.0.0.1:8095/health
