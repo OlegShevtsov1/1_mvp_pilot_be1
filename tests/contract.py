@@ -31,8 +31,10 @@ def assert_matches_contract(response, method, path):
 
     schema = documented[status].get("content", {}).get("application/json", {}).get("schema")
     if schema is not None:
-        # OpenAPI 3.0 schema objects are a Draft 4 subset; this contract uses no $ref or nullable.
+        # OpenAPI 3.0 schema objects are a Draft 4 subset; this contract uses no nullable. A
+        # `#/components/...` $ref resolves against the contract's components, carried along.
         validator = jsonschema.Draft4Validator(
-            schema, format_checker=jsonschema.Draft4Validator.FORMAT_CHECKER
+            {**schema, "components": _contract()["components"]},
+            format_checker=jsonschema.Draft4Validator.FORMAT_CHECKER,
         )
         validator.validate(json.loads(response.content))

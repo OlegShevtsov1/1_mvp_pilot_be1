@@ -3,7 +3,8 @@
 The Python + Django analogue of the Rails pilot backend `OlegShevtsov1/1_mvp_pilot_be`: the same JSON API,
 so the frontend works unchanged.
 
-**The API must match contract/openapi.json; port logic from 1_mvp_pilot_be, add nothing new.**
+**The API must match contract/openapi.json. Existing paths and components stay unchanged, so
+existing clients keep working; a new endpoint is added to the contract with its schemas.**
 
 **This repo uses the Django layout config/ + apps/ from django-patterns, not the src/ layout of
 python-best-practices.**
@@ -42,9 +43,10 @@ Change dependencies only with `uv add` / `uv remove` and commit `pyproject.toml`
   `tests.contract.assert_matches_contract(response, method, path)`, where `path` is the
   contract's path template (e.g. `"/api/v1/projects/{id}"`). Endpoints be leaves out of the
   contract (`/health`) are tested against be's request specs instead.
-- Never edit the `paths` or `components` (schemas, responses) of `contract/openapi.json`: they
-  are be's `swagger/v1/swagger.json` unchanged. Only `info` and `servers` differ from it, and
-  they stay neutral (no origin project named).
+- Never change an existing path or component (schemas, responses) of `contract/openapi.json`,
+  so existing clients keep working. A new endpoint adds its path, and any schema it needs under
+  `components.schemas` (referenced as `#/components/schemas/<Name>`). `info` and `servers` stay
+  neutral (no origin project named).
 - The skills in `.claude/skills/` are vendored; see `.claude/skills/README.md`.
 
 ## Auth and errors

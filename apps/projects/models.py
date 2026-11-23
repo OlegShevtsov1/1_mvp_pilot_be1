@@ -76,3 +76,39 @@ class Project(models.Model):
                 projects_count=F("projects_count") - 1, updated_at=timezone.now()
             )
         return deleted
+
+
+class Membership(models.Model):
+    """A user sharing another user's project as a `member` (reads, and writes tasks) or a
+    `viewer` (reads). The owner is `project.user` and has no membership. Saving and deleting
+    touch the project, so the list caches of its owner and members change."""
+
+    ROLES = ("member", "viewer")
+
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="memberships")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="memberships")
+    role = models.CharField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["project", "user"], name="unique_project_membership")
+        ]
+
+    def full_messages(self):
+        """The validation messages; empty when the membership is valid."""
+        if self.role not in self.ROLES:
+            return [f"Role must be one of: {', '.join(self.ROLES)}"]
+        return []
+
+    def save(self, *args, **kwargs):
+        with transaction.atomic():
+            super().save(*args, **kwargs)
+            Project.objects.filter(pk=self.project_id).update(updated_at=self.updated_at)
+
+    def delete(self, *args, **kwargs):
+        with transaction.atomic():
+            deleted = super().delete(*args, **kwargs)
+            Project.objects.filter(pk=self.project_id).update(updated_at=timezone.now())
+        return deleted

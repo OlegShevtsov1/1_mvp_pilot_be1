@@ -181,6 +181,109 @@ def main(release):
         body={"client_id": client_id, "token": token},
     )
     s.call("GET", "/api/v1/me", 401, contract="/api/v1/me", headers=bearer(token))
+
+    # Members and roles: alice shares a project with carol as a viewer, then as a member.
+    owner = bearer(alice["access_token"])
+    carol = bearer(sign_up("carol@example.com")["access_token"])
+    shared = s.call(
+        "POST", projects, 201, contract=projects, body={"project": project}, headers=owner
+    ).json()["data"]
+    shared_one = f"{projects}/{shared['id']}"
+    members = f"{shared_one}/members"
+    members_t = "/api/v1/projects/{project_id}/members"
+    member_t = "/api/v1/projects/{project_id}/members/{id}"
+    viewer = {"email": "carol@example.com", "role": "viewer"}
+    membership = s.call(
+        "POST", members, 201, contract=members_t, body={"member": viewer}, headers=owner
+    ).json()["data"]
+    member_one = f"{members}/{membership['id']}"
+    s.call("GET", members, 200, contract=members_t, headers=carol)
+    s.call("GET", shared_one, 200, contract=one_t, headers=carol)
+    # 403 is not a documented answer of the tasks operation, so it is checked by status and body.
+    refused = s.call("POST", f"{shared_one}/tasks", 403, body={"task": task}, headers=carol)
+    s.check(
+        refused.json() == {"error": "You are not authorized to perform this action"},
+        f"viewer task create: {refused.content}",
+    )
+    s.call(
+        "PUT",
+        member_one,
+        200,
+        contract=member_t,
+        body={"member": {"role": "member"}},
+        headers=owner,
+    )
+    first_task = s.call(
+        "POST", f"{shared_one}/tasks", 201, contract=tasks_t, body={"task": task}, headers=carol
+    ).json()["data"]
+    s.call("DELETE", member_one, 204, contract=member_t, headers=owner)
+    s.call("GET", shared_one, 404, contract=one_t, headers=carol)
+
+    # Dependencies: the second task is blocked by the first until the first is completed.
+    shared_tasks = f"{shared_one}/tasks"
+    second_task = s.call(
+        "POST", shared_tasks, 201, contract=tasks_t, body={"task": task}, headers=owner
+    ).json()["data"]
+    task_1 = f"{shared_tasks}/{first_task['id']}"
+    task_2 = f"{shared_tasks}/{second_task['id']}"
+    deps_t = "/api/v1/projects/{project_id}/tasks/{id}/dependencies"
+    dependency = {"dependency": {"task_id": first_task["id"]}}
+    s.call("POST", f"{task_2}/dependencies", 201, contract=deps_t, body=dependency, headers=owner)
+    blockers = s.call("GET", f"{task_2}/dependencies", 200, contract=deps_t, headers=owner)
+    s.check(
+        [each["id"] for each in blockers.json()["data"]] == [first_task["id"]],
+        f"blockers of task 2: {blockers.content}",
+    )
+    completed = {"task": {"status": "completed"}}
+    blocked = s.call("PUT", task_2, 422, contract=task_t, body=completed, headers=owner)
+    s.check(
+        blocked.json() == {"errors": ["Task is blocked by unfinished tasks"]},
+        f"blocked completion: {blocked.content}",
+    )
+    s.call("PUT", task_1, 200, contract=task_t, body=completed, headers=owner)
+    s.call("PUT", task_2, 200, contract=task_t, body=completed, headers=owner)
+
+    # Labels: one label on the first task, listed by the label, then detached and deleted.
+    labels = f"{shared_one}/labels"
+    labels_t = "/api/v1/projects/{project_id}/labels"
+    label_t = "/api/v1/projects/{project_id}/labels/{id}"
+    label = s.call(
+        "POST",
+        labels,
+        201,
+        contract=labels_t,
+        body={"label": {"name": "smoke", "color": "#1a2b3c"}},
+        headers=owner,
+    ).json()["data"]
+    label_one = f"{labels}/{label['id']}"
+    task_labels_t = "/api/v1/projects/{project_id}/tasks/{id}/labels"
+    s.call(
+        "POST",
+        f"{task_1}/labels",
+        201,
+        contract=task_labels_t,
+        body={"label": {"label_id": label["id"]}},
+        headers=owner,
+    )
+    labelled = s.call(
+        "GET",
+        f"{label_one}/tasks",
+        200,
+        contract="/api/v1/projects/{project_id}/labels/{id}/tasks",
+        headers=owner,
+    )
+    s.check(
+        [each["id"] for each in labelled.json()["data"]] == [first_task["id"]],
+        f"tasks of the label: {labelled.content}",
+    )
+    s.call(
+        "DELETE",
+        f"{task_1}/labels/{label['id']}",
+        204,
+        contract="/api/v1/projects/{project_id}/tasks/{id}/labels/{label_id}",
+        headers=owner,
+    )
+    s.call("DELETE", label_one, 204, contract=label_t, headers=owner)
     s.call(
         "POST",
         "/api/v1/sign_out",

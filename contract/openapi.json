@@ -21,6 +21,261 @@
         "name": "X-User-Email",
         "in": "header"
       }
+    },
+    "schemas": {
+      "Member": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "member",
+              "viewer"
+            ]
+          },
+          "user": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer"
+              },
+              "email": {
+                "type": "string",
+                "format": "email"
+              }
+            },
+            "required": [
+              "id",
+              "email"
+            ],
+            "additionalProperties": false
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "role",
+          "user",
+          "created_at",
+          "updated_at"
+        ],
+        "additionalProperties": false
+      },
+      "MemberRequest": {
+        "type": "object",
+        "properties": {
+          "member": {
+            "type": "object",
+            "properties": {
+              "email": {
+                "type": "string",
+                "format": "email"
+              },
+              "role": {
+                "type": "string",
+                "enum": [
+                  "member",
+                  "viewer"
+                ]
+              }
+            }
+          }
+        },
+        "required": [
+          "member"
+        ]
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "additionalProperties": false
+      },
+      "ValidationErrors": {
+        "type": "object",
+        "properties": {
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "errors"
+        ],
+        "additionalProperties": false
+      },
+      "Task": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "in_progress",
+              "completed"
+            ]
+          },
+          "project": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer"
+              },
+              "name": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "user": {
+                "type": "object"
+              },
+              "tasks": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                }
+              }
+            },
+            "required": [
+              "id",
+              "name",
+              "description",
+              "user",
+              "tasks"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "status",
+          "project"
+        ],
+        "additionalProperties": false
+      },
+      "Label": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "color": {
+            "type": "string",
+            "pattern": "^#[0-9a-fA-F]{6}$"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "color",
+          "created_at",
+          "updated_at"
+        ],
+        "additionalProperties": false
+      },
+      "LabelRequest": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "maxLength": 30
+              },
+              "color": {
+                "type": "string",
+                "pattern": "^#[0-9a-fA-F]{6}$",
+                "default": "#808080"
+              }
+            }
+          }
+        },
+        "required": [
+          "label"
+        ]
+      },
+      "DependencyRequest": {
+        "type": "object",
+        "properties": {
+          "dependency": {
+            "type": "object",
+            "properties": {
+              "task_id": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "task_id"
+            ]
+          }
+        },
+        "required": [
+          "dependency"
+        ]
+      },
+      "TaskLabelRequest": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "object",
+            "properties": {
+              "label_id": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "label_id"
+            ]
+          }
+        },
+        "required": [
+          "label"
+        ]
+      }
     }
   },
   "paths": {
@@ -1976,6 +2231,1636 @@
                   "token"
                 ],
                 "additionalProperties": false
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/members": {
+      "parameters": [
+        {
+          "name": "project_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          }
+        }
+      ],
+      "get": {
+        "summary": "Lists a project's members",
+        "description": "Any role: owner, member or viewer.",
+        "tags": [
+          "Members"
+        ],
+        "security": [
+          {
+            "bearer_auth": []
+          },
+          {
+            "x_auth_token": [],
+            "x_auth_email": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "members found",
+            "content": {
+              "application/json": {
+                "example": {
+                  "data": [
+                    {
+                      "id": 7,
+                      "role": "viewer",
+                      "user": {
+                        "id": 12,
+                        "email": "viewer@example.com"
+                      },
+                      "created_at": "2026-11-23T10:00:00.000000+00:00",
+                      "updated_at": "2026-11-23T10:00:00.000000+00:00"
+                    }
+                  ]
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Member"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "unauthorized",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Not Authorized"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "project not found",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Not Found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Adds a member to a project",
+        "description": "Owner only. The body names the user by email and the role (member or viewer).",
+        "tags": [
+          "Members"
+        ],
+        "security": [
+          {
+            "bearer_auth": []
+          },
+          {
+            "x_auth_token": [],
+            "x_auth_email": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemberRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "member added",
+            "content": {
+              "application/json": {
+                "example": {
+                  "data": {
+                    "id": 7,
+                    "role": "viewer",
+                    "user": {
+                      "id": 12,
+                      "email": "viewer@example.com"
+                    },
+                    "created_at": "2026-11-23T10:00:00.000000+00:00",
+                    "updated_at": "2026-11-23T10:00:00.000000+00:00"
+                  }
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Member"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "unauthorized",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Not Authorized"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "role too low",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "You are not authorized to perform this action"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "project or user not found",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "User not found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "owner, already a member, or invalid role",
+            "content": {
+              "application/json": {
+                "example": {
+                  "errors": [
+                    "Role must be one of: member, viewer"
+                  ]
+                },
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ValidationErrors"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/members/{id}": {
+      "parameters": [
+        {
+          "name": "project_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          }
+        },
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          }
+        }
+      ],
+      "put": {
+        "summary": "Changes a member's role",
+        "description": "Owner only. PATCH behaves the same.",
+        "tags": [
+          "Members"
+        ],
+        "security": [
+          {
+            "bearer_auth": []
+          },
+          {
+            "x_auth_token": [],
+            "x_auth_email": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemberRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "member updated",
+            "content": {
+              "application/json": {
+                "example": {
+                  "data": {
+                    "id": 7,
+                    "role": "viewer",
+                    "user": {
+                      "id": 12,
+                      "email": "viewer@example.com"
+                    },
+                    "created_at": "2026-11-23T10:00:00.000000+00:00",
+                    "updated_at": "2026-11-23T10:00:00.000000+00:00"
+                  }
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Member"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "unauthorized",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Not Authorized"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "role too low",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "You are not authorized to perform this action"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "project or member not found",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Not Found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "invalid role",
+            "content": {
+              "application/json": {
+                "example": {
+                  "errors": [
+                    "Role must be one of: member, viewer"
+                  ]
+                },
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ValidationErrors"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Removes a member",
+        "description": "The owner removes anyone; a member or viewer may remove only their own membership (leave).",
+        "tags": [
+          "Members"
+        ],
+        "security": [
+          {
+            "bearer_auth": []
+          },
+          {
+            "x_auth_token": [],
+            "x_auth_email": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "member removed"
+          },
+          "401": {
+            "description": "unauthorized",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Not Authorized"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "role too low",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "You are not authorized to perform this action"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "project or member not found",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Not Found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/tasks/{id}/dependencies": {
+      "parameters": [
+        {
+          "name": "project_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          }
+        },
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          }
+        }
+      ],
+      "get": {
+        "summary": "Lists the tasks a task is blocked by",
+        "description": "Any role: owner, member or viewer. In id order.",
+        "tags": [
+          "Dependencies"
+        ],
+        "security": [
+          {
+            "bearer_auth": []
+          },
+          {
+            "x_auth_token": [],
+            "x_auth_email": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "blockers found",
+            "content": {
+              "application/json": {
+                "example": {
+                  "data": [
+                    {
+                      "id": 1616,
+                      "name": "Sample Task",
+                      "description": "This is a sample task description",
+                      "status": "not_started",
+                      "project": {
+                        "id": 3398,
+                        "name": "Sample Project",
+                        "description": "This is a sample project description that meets the minimum length requirement",
+                        "user": {
+                          "id": 12,
+                          "email": "owner@example.com"
+                        },
+                        "tasks": [
+                          {
+                            "id": 1616,
+                            "name": "Sample Task",
+                            "description": "This is a sample task description",
+                            "status": "not_started"
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Task"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "unauthorized",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Not Authorized"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "project or task not found",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Not Found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Makes a task blocked by another task of the project",
+        "description": "Owner or member; a viewer gets 403. Answers the blocker. Refuses a task of another project, the task itself, an existing dependency and one that would close a cycle.",
+        "tags": [
+          "Dependencies"
+        ],
+        "security": [
+          {
+            "bearer_auth": []
+          },
+          {
+            "x_auth_token": [],
+            "x_auth_email": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DependencyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "dependency added",
+            "content": {
+              "application/json": {
+                "example": {
+                  "data": {
+                    "id": 1616,
+                    "name": "Sample Task",
+                    "description": "This is a sample task description",
+                    "status": "not_started",
+                    "project": {
+                      "id": 3398,
+                      "name": "Sample Project",
+                      "description": "This is a sample project description that meets the minimum length requirement",
+                      "user": {
+                        "id": 12,
+                        "email": "owner@example.com"
+                      },
+                      "tasks": [
+                        {
+                          "id": 1616,
+                          "name": "Sample Task",
+                          "description": "This is a sample task description",
+                          "status": "not_started"
+                        }
+                      ]
+                    }
+                  }
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Task"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "unauthorized",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Not Authorized"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "role too low",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "You are not authorized to perform this action"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "project or task not found",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Not Found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "other project, self, existing or cyclic dependency",
+            "content": {
+              "application/json": {
+                "example": {
+                  "errors": [
+                    "Dependency would create a cycle"
+                  ]
+                },
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ValidationErrors"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/tasks/{id}/dependencies/{blocker_id}": {
+      "parameters": [
+        {
+          "name": "project_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          }
+        },
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          }
+        },
+        {
+          "name": "blocker_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          }
+        }
+      ],
+      "delete": {
+        "summary": "Removes a dependency",
+        "description": "Owner or member; a viewer gets 403.",
+        "tags": [
+          "Dependencies"
+        ],
+        "security": [
+          {
+            "bearer_auth": []
+          },
+          {
+            "x_auth_token": [],
+            "x_auth_email": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "dependency removed"
+          },
+          "401": {
+            "description": "unauthorized",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Not Authorized"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "role too low",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "You are not authorized to perform this action"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "project, task or dependency not found",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Not Found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/labels": {
+      "parameters": [
+        {
+          "name": "project_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          }
+        }
+      ],
+      "get": {
+        "summary": "Lists a project's labels",
+        "description": "Any role: owner, member or viewer. In id order.",
+        "tags": [
+          "Labels"
+        ],
+        "security": [
+          {
+            "bearer_auth": []
+          },
+          {
+            "x_auth_token": [],
+            "x_auth_email": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "labels found",
+            "content": {
+              "application/json": {
+                "example": {
+                  "data": [
+                    {
+                      "id": 3,
+                      "name": "backend",
+                      "color": "#1a2b3c",
+                      "created_at": "2026-11-23T10:00:00.000000+00:00",
+                      "updated_at": "2026-11-23T10:00:00.000000+00:00"
+                    }
+                  ]
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Label"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "unauthorized",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Not Authorized"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "project not found",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Not Found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Creates a label",
+        "description": "Owner or member; a viewer gets 403. The color defaults to #808080.",
+        "tags": [
+          "Labels"
+        ],
+        "security": [
+          {
+            "bearer_auth": []
+          },
+          {
+            "x_auth_token": [],
+            "x_auth_email": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabelRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "label created",
+            "content": {
+              "application/json": {
+                "example": {
+                  "data": {
+                    "id": 3,
+                    "name": "backend",
+                    "color": "#1a2b3c",
+                    "created_at": "2026-11-23T10:00:00.000000+00:00",
+                    "updated_at": "2026-11-23T10:00:00.000000+00:00"
+                  }
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Label"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "unauthorized",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Not Authorized"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "role too low",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "You are not authorized to perform this action"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "project not found",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Not Found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "invalid label",
+            "content": {
+              "application/json": {
+                "example": {
+                  "errors": [
+                    "Name has already been taken"
+                  ]
+                },
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ValidationErrors"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/labels/{id}": {
+      "parameters": [
+        {
+          "name": "project_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          }
+        },
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          }
+        }
+      ],
+      "get": {
+        "summary": "Fetches a label",
+        "description": "Any role: owner, member or viewer.",
+        "tags": [
+          "Labels"
+        ],
+        "security": [
+          {
+            "bearer_auth": []
+          },
+          {
+            "x_auth_token": [],
+            "x_auth_email": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "label found",
+            "content": {
+              "application/json": {
+                "example": {
+                  "data": {
+                    "id": 3,
+                    "name": "backend",
+                    "color": "#1a2b3c",
+                    "created_at": "2026-11-23T10:00:00.000000+00:00",
+                    "updated_at": "2026-11-23T10:00:00.000000+00:00"
+                  }
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Label"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "unauthorized",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Not Authorized"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "project or label not found",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Not Found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Updates a label",
+        "description": "Owner or member; a viewer gets 403. PATCH behaves the same.",
+        "tags": [
+          "Labels"
+        ],
+        "security": [
+          {
+            "bearer_auth": []
+          },
+          {
+            "x_auth_token": [],
+            "x_auth_email": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LabelRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "label updated",
+            "content": {
+              "application/json": {
+                "example": {
+                  "data": {
+                    "id": 3,
+                    "name": "backend",
+                    "color": "#1a2b3c",
+                    "created_at": "2026-11-23T10:00:00.000000+00:00",
+                    "updated_at": "2026-11-23T10:00:00.000000+00:00"
+                  }
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Label"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "unauthorized",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Not Authorized"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "role too low",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "You are not authorized to perform this action"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "project or label not found",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Not Found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "invalid label",
+            "content": {
+              "application/json": {
+                "example": {
+                  "errors": [
+                    "Color must be a hex color like #1a2b3c"
+                  ]
+                },
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ValidationErrors"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Deletes a label",
+        "description": "Owner or member; a viewer gets 403. Detaches it from its tasks.",
+        "tags": [
+          "Labels"
+        ],
+        "security": [
+          {
+            "bearer_auth": []
+          },
+          {
+            "x_auth_token": [],
+            "x_auth_email": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "label deleted"
+          },
+          "401": {
+            "description": "unauthorized",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Not Authorized"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "role too low",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "You are not authorized to perform this action"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "project or label not found",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Not Found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/labels/{id}/tasks": {
+      "parameters": [
+        {
+          "name": "project_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          }
+        },
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          }
+        }
+      ],
+      "get": {
+        "summary": "Lists the tasks carrying a label",
+        "description": "Any role: owner, member or viewer. In id order.",
+        "tags": [
+          "Labels"
+        ],
+        "security": [
+          {
+            "bearer_auth": []
+          },
+          {
+            "x_auth_token": [],
+            "x_auth_email": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "tasks found",
+            "content": {
+              "application/json": {
+                "example": {
+                  "data": [
+                    {
+                      "id": 1616,
+                      "name": "Sample Task",
+                      "description": "This is a sample task description",
+                      "status": "not_started",
+                      "project": {
+                        "id": 3398,
+                        "name": "Sample Project",
+                        "description": "This is a sample project description that meets the minimum length requirement",
+                        "user": {
+                          "id": 12,
+                          "email": "owner@example.com"
+                        },
+                        "tasks": [
+                          {
+                            "id": 1616,
+                            "name": "Sample Task",
+                            "description": "This is a sample task description",
+                            "status": "not_started"
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Task"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "unauthorized",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Not Authorized"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "project or label not found",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Not Found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/tasks/{id}/labels": {
+      "parameters": [
+        {
+          "name": "project_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          }
+        },
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          }
+        }
+      ],
+      "get": {
+        "summary": "Lists a task's labels",
+        "description": "Any role: owner, member or viewer. In id order.",
+        "tags": [
+          "Labels"
+        ],
+        "security": [
+          {
+            "bearer_auth": []
+          },
+          {
+            "x_auth_token": [],
+            "x_auth_email": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "labels found",
+            "content": {
+              "application/json": {
+                "example": {
+                  "data": [
+                    {
+                      "id": 3,
+                      "name": "backend",
+                      "color": "#1a2b3c",
+                      "created_at": "2026-11-23T10:00:00.000000+00:00",
+                      "updated_at": "2026-11-23T10:00:00.000000+00:00"
+                    }
+                  ]
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Label"
+                      }
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "unauthorized",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Not Authorized"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "project or task not found",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Not Found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Attaches a label of the project to a task",
+        "description": "Owner or member; a viewer gets 403. Answers the label.",
+        "tags": [
+          "Labels"
+        ],
+        "security": [
+          {
+            "bearer_auth": []
+          },
+          {
+            "x_auth_token": [],
+            "x_auth_email": []
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskLabelRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "label attached",
+            "content": {
+              "application/json": {
+                "example": {
+                  "data": {
+                    "id": 3,
+                    "name": "backend",
+                    "color": "#1a2b3c",
+                    "created_at": "2026-11-23T10:00:00.000000+00:00",
+                    "updated_at": "2026-11-23T10:00:00.000000+00:00"
+                  }
+                },
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Label"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "unauthorized",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Not Authorized"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "role too low",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "You are not authorized to perform this action"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "project or task not found",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Not Found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "label of another project, or already attached",
+            "content": {
+              "application/json": {
+                "example": {
+                  "errors": [
+                    "Label already attached"
+                  ]
+                },
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ValidationErrors"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Error"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/projects/{project_id}/tasks/{id}/labels/{label_id}": {
+      "parameters": [
+        {
+          "name": "project_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          }
+        },
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          }
+        },
+        {
+          "name": "label_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          }
+        }
+      ],
+      "delete": {
+        "summary": "Detaches a label from a task",
+        "description": "Owner or member; a viewer gets 403.",
+        "tags": [
+          "Labels"
+        ],
+        "security": [
+          {
+            "bearer_auth": []
+          },
+          {
+            "x_auth_token": [],
+            "x_auth_email": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "label detached"
+          },
+          "401": {
+            "description": "unauthorized",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Not Authorized"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "role too low",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "You are not authorized to perform this action"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "project, task or attached label not found",
+            "content": {
+              "application/json": {
+                "example": {
+                  "error": "Not Found"
+                },
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
               }
             }
           }

@@ -211,3 +211,84 @@ class TestCache:
         projects[0].delete()
 
         assert services.cache_key(user) != before
+
+
+class TestCacheOfSharedProjects:
+    @pytest.fixture
+    def shared(self, user, make_project, make_membership):
+        project = make_project()
+        make_membership(project=project, user=user, role="viewer")
+        return project
+
+    def test_lists_and_signs_the_shared_projects(self, user, make_project, shared):
+        own = make_project(user=user)
+        latest = max(own.updated_at, Project.objects.get(pk=shared.pk).updated_at)
+
+        assert services.index(user) == [shared, own]
+        assert services.cache_key(user) == (
+            f"projects:{user.id}:stats:count=2:updated={latest.isoformat()}:v1"
+        )
+
+    def test_changes_the_key_when_a_shared_project_is_updated(self, user, shared):
+        before = services.cache_key(user)
+        services.index(user)
+
+        Project.objects.filter(pk=shared.pk).update(
+            updated_at=shared.updated_at + timedelta(days=1)
+        )
+
+        assert services.cache_key(user) != before
+
+    def test_changes_the_key_when_a_task_of_a_shared_project_is_added(
+        self, user, shared, make_task, clock
+    ):
+        before = services.cache_key(user)
+        clock.travel(timedelta(seconds=1))
+
+        make_task(project=shared)
+
+        assert services.cache_key(user) != before
+
+    def test_changes_the_key_when_a_membership_is_added(
+        self, user, make_project, make_membership, clock
+    ):
+        make_project(user=user)
+        before = services.cache_key(user)
+        services.index(user)
+        clock.travel(timedelta(seconds=1))
+
+        make_membership(project=make_project(), user=user)
+
+        assert services.cache_key(user) != before
+        assert len(services.index(user)) == 2
+
+    def test_changes_the_key_when_a_membership_changes(self, user, shared, clock):
+        before = services.cache_key(user)
+        clock.travel(timedelta(seconds=1))
+
+        membership = shared.memberships.get(user=user)
+        membership.role = "member"
+        membership.save()
+
+        assert services.cache_key(user) != before
+
+    def test_changes_the_key_when_a_membership_is_removed(self, user, shared, clock):
+        before = services.cache_key(user)
+        services.index(user)
+        clock.travel(timedelta(seconds=1))
+
+        shared.memberships.get(user=user).delete()
+
+        assert services.cache_key(user) != before
+        assert services.index(user) == []
+
+    def test_changes_the_owners_key_when_a_member_is_added(
+        self, user, make_user, make_project, make_membership, clock
+    ):
+        project = make_project(user=user)
+        before = services.cache_key(user)
+        clock.travel(timedelta(seconds=1))
+
+        make_membership(project=project, user=make_user())
+
+        assert services.cache_key(user) != before

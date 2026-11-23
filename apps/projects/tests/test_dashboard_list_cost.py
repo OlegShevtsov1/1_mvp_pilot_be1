@@ -94,3 +94,26 @@ def test_renders_each_project_with_its_owner_and_its_tasks_and_nothing_else(
         for project in user.projects.order_by("id")
     ]
     assert sorted(data, key=lambda project: project["id"]) == expected
+
+
+def test_shared_projects_cost_no_extra_query(
+    client,
+    user,
+    headers,
+    seed,
+    make_project,
+    make_task,
+    make_membership,
+    django_assert_max_num_queries,
+):
+    seed(projects=2, tasks=2)
+    for _ in range(3):
+        shared = make_project()
+        make_membership(project=shared, user=user, role="viewer")
+        for _ in range(2):
+            make_task(project=shared)
+
+    with django_assert_max_num_queries(LIST_QUERIES):
+        data = list_projects(client, headers).json()["data"]
+
+    assert len(data) == 5

@@ -41,3 +41,22 @@ def test_checks_only_the_status_of_a_response_without_content():
 def test_health_is_not_in_the_contract():
     with pytest.raises(AssertionError, match="not an operation"):
         assert_matches_contract(JsonResponse({"status": "ok"}), "get", "/health")
+
+
+MEMBER = {
+    "id": 1,
+    "role": "viewer",
+    "user": {"id": 2, "email": "b@example.com"},
+    "created_at": "2026-11-23T10:00:00+00:00",
+    "updated_at": "2026-11-23T10:00:00+00:00",
+}
+
+
+def test_resolves_a_component_reference():
+    members = "/api/v1/projects/{project_id}/members"
+
+    assert_matches_contract(JsonResponse({"data": [MEMBER]}), "get", members)
+    with pytest.raises(jsonschema.ValidationError):
+        assert_matches_contract(
+            JsonResponse({"data": [{**MEMBER, "role": "owner"}]}), "get", members
+        )
