@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from django.core.cache import cache
 from django.db.models import Count, Max, Prefetch
 
+from apps.projects.access import visible_projects
 from apps.projects.models import Project, blank
 from apps.tasks.models import Task
 
@@ -27,11 +28,13 @@ def signature(records):
 
 
 def cache_key(user, task_status=None):
-    """The list's cache key. The status filter comes from the client, so it enters the key as a
-    SHA-256 digest: any value gives a short key without spaces or control characters, which
-    memcached would reject."""
+    """The list's cache key, signed over the projects the user sees: their own and those shared
+    with them. Saving or deleting a membership touches its project, so adding or changing one
+    moves the latest `updated_at` and removing one lowers the count. The status filter comes
+    from the client, so it enters the key as a SHA-256 digest: any value gives a short key
+    without spaces or control characters, which memcached would reject."""
     filter_part = [] if task_status is None else [f"filter:{digest(task_status)}"]
-    parts = [f"projects:{user.id}", signature(user.projects), *filter_part, "v1"]
+    parts = [f"projects:{user.id}", signature(visible_projects(user)), *filter_part, "v1"]
     return ":".join(parts)
 
 
@@ -47,9 +50,9 @@ def with_owner_and_tasks(projects, tasks=None):
 
 
 def fetch_projects(user, task_status=None):
-    """The user's projects; with `task_status`, those having such a task, each with only
+    """The projects the user sees; with `task_status`, those having such a task, each with only
     those tasks, loaded in one joined query."""
-    projects = user.projects.order_by("id")
+    projects = visible_projects(user).order_by("id")
     if task_status is None:
         return list(with_owner_and_tasks(projects))
     return list(

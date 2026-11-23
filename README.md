@@ -2,8 +2,10 @@
 
 A Django + Django REST framework JSON API for users, projects and tasks: email/password sign-up and
 sign-in, OAuth2 access and refresh tokens (password, refresh-token and Google ID-token grants), a
-legacy header token pair, a Sentry tunnel that relays frontend errors to GlitchTip, and OpenAPI
-docs. `contract/openapi.json` is the API's OpenAPI document, and the tests check every response of
+legacy header token pair, projects shared with members (who also write tasks) and viewers (who
+read), task dependencies (a task blocked by others of its project) and project labels on tasks,
+a Sentry tunnel that relays frontend errors to GlitchTip, and OpenAPI docs.
+`contract/openapi.json` is the API's OpenAPI document, and the tests check every response of
 a contract operation against it.
 
 ## Prerequisites
@@ -60,8 +62,9 @@ uv run pytest -m smoke          # the same, from pytest (LOCAL_SMOKE_REF picks t
 
 `bin/local-smoke` starts origin/main (or `<sha>`) with `bin/local-up` on a fresh SQLite database in
 a temp dir, drives the user journey over HTTP (sign-up, sign-in, OAuth token, refresh and revoke,
-`/me` with both auth schemes, projects and tasks, 401/404/422, sign-out, `/api-docs` and a CORS
-preflight), and checks every answer of a contract operation against `contract/openapi.json`.
+`/me` with both auth schemes, projects and tasks, 401/404/422, sharing a project with a viewer
+then a member, task dependencies and labels, sign-out, `/api-docs` and a CORS preflight), and
+checks every answer of a contract operation against `contract/openapi.json`.
 It prints `ok <method> <path> <status>` per step and `smoke: N/N ok` at the end, exits non-zero on
 the first mismatch, and always stops its server and removes the temp dir. It refuses to start while
 something answers on 8095: run `bin/local-down` first. The unit suite deselects the `smoke` test;
@@ -110,7 +113,8 @@ GlitchTip, CORS and smoke-check variables: see [docs/errors-and-cors.md](docs/er
 - `POST /oauth/revoke` — revokes an access or refresh token; 200 for any parseable body
   (an unparseable JSON body answers 400)
 - `/api/v1/projects` and `/api/v1/projects/{id}`, with tasks nested under
-  `/api/v1/projects/{project_id}/tasks` — authenticated CRUD; see
+  `/api/v1/projects/{project_id}/tasks` — authenticated CRUD; a project's members and viewers
+  under `/api/v1/projects/{project_id}/members`; see
   [docs/projects-and-tasks.md](docs/projects-and-tasks.md)
 
 Authenticated endpoints take `Authorization: Bearer <access_token>`, or the legacy

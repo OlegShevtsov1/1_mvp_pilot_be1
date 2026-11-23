@@ -3,9 +3,10 @@
 from datetime import timedelta
 
 import pytest
+from django.db import IntegrityError, transaction
 from django.db.models import CASCADE, PROTECT, ProtectedError
 
-from apps.projects.models import Project
+from apps.projects.models import Membership, Project
 from apps.tasks.models import Task
 
 VALID_DESCRIPTION = "This is a sample project description that meets the minimum length requirement"
@@ -102,3 +103,53 @@ class TestDeletion:
         assert project.deletion_errors() == []
         project.delete()
         assert Project.objects.count() == 0
+
+
+@pytest.mark.django_db
+class TestMembership:
+    def test_goes_with_its_project_and_its_user(self):
+        assert Membership._meta.get_field("project").remote_field.on_delete is CASCADE
+        assert Membership._meta.get_field("user").remote_field.on_delete is CASCADE
+
+    def test_is_unique_per_project_and_user(self, make_project, make_user, make_membership):
+        project, user = make_project(), make_user()
+        make_membership(project=project, user=user)
+
+        with pytest.raises(IntegrityError), transaction.atomic():
+            make_membership(project=project, user=user, role="viewer")
+
+    @pytest.mark.parametrize(
+        ("role", "messages"),
+        [
+            ("member", []),
+            ("viewer", []),
+            ("owner", ["Role must be one of: member, viewer"]),
+            (None, ["Role must be one of: member, viewer"]),
+        ],
+    )
+    def test_validates_the_role(self, role, messages):
+        assert Membership(role=role).full_messages() == messages
+
+    def test_touches_the_project_when_saved(self, make_project, make_membership, clock):
+        project = make_project()
+        clock.travel(timedelta(seconds=1))
+
+        membership = make_membership(project=project)
+        project.refresh_from_db()
+        assert project.updated_at == clock.now
+
+        clock.travel(timedelta(seconds=1))
+        membership.role = "viewer"
+        membership.save()
+        project.refresh_from_db()
+        assert project.updated_at == clock.now
+
+    def test_touches_the_project_when_deleted(self, make_project, make_membership, clock):
+        project = make_project()
+        membership = make_membership(project=project)
+        clock.travel(timedelta(seconds=1))
+
+        membership.delete()
+
+        project.refresh_from_db()
+        assert project.updated_at == clock.now

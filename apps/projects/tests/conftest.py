@@ -1,6 +1,6 @@
 import pytest
 
-from apps.projects.models import Project
+from apps.projects.models import Membership, Project
 from apps.tasks.models import Task
 from apps.users.tests import conftest as users
 
@@ -42,6 +42,18 @@ def make_task(make_project):
                 "status": "not_started",
             }
             | fields,
+        )
+
+    return make
+
+
+@pytest.fixture
+def make_membership(make_user, make_project):
+    """A saved membership: `user` (a new user by default) in `project` as `role`."""
+
+    def make(project=None, user=None, role="member"):
+        return Membership.objects.create(
+            project=project or make_project(), user=user or make_user(), role=role
         )
 
     return make

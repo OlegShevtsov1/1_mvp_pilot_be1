@@ -3,10 +3,11 @@
 from dataclasses import dataclass, field
 
 from django.core.cache import cache
-from django.db import DatabaseError
+from django.db import DatabaseError, transaction
 from django.db.models import Prefetch
 
 from apps.projects import services as projects
+from apps.tasks import dependencies
 from apps.tasks.models import Task
 
 CACHE_TIMEOUT = 15 * 60
@@ -27,6 +28,16 @@ def fetch_tasks(project):
     so rendering each task's nested project costs no query."""
     project = projects.load(project.pk)
     tasks = list(project.tasks.all())
+    for task in tasks:
+        task.project = project
+    return tasks
+
+
+def with_project(project, tasks):
+    """`tasks` of the project in id order, all sharing one project instance with its owner and
+    tasks loaded, so rendering each task's nested project costs no query."""
+    project = projects.load(project.pk)
+    tasks = list(tasks.order_by("id"))
     for task in tasks:
         task.project = project
     return tasks
@@ -59,14 +70,21 @@ def create(project, params):
 
 def update(task, params):
     changed = [name for name, value in params.items() if getattr(task, name) != value]
+    completing = "status" in changed and params["status"] == "completed"
     for name, value in params.items():
         setattr(task, name, value)
-    errors = task.full_messages()
-    if errors:
-        return TaskResult(task, errors)
-    # Only the changed columns are written, and nothing at all when none changed.
-    if changed:
-        task.save(update_fields=[*changed, "updated_at"])
+    # Completing checks the blockers under the project lock that adding a dependency takes, so
+    # a blocker added concurrently is either seen here or refused there.
+    with transaction.atomic():
+        errors = task.full_messages()
+        if completing:
+            dependencies.lock_project(task.project_id)
+            errors += dependencies.unfinished_blockers(task)
+        if errors:
+            return TaskResult(task, errors)
+        # Only the changed columns are written, and nothing at all when none changed.
+        if changed:
+            task.save(update_fields=[*changed, "updated_at"])
     return TaskResult(load(task.pk))
 
 

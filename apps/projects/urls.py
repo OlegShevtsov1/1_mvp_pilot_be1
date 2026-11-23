@@ -6,4 +6,6 @@ from apps.projects import views
 urlpatterns = [
     path("api/v1/projects", views.ProjectListView.as_view()),
     path("api/v1/projects/<str:id>", views.ProjectDetailView.as_view()),
+    path("api/v1/projects/<str:project_id>/members", views.MemberListView.as_view()),
+    path("api/v1/projects/<str:project_id>/members/<str:id>", views.MemberDetailView.as_view()),
 ]

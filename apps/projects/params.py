@@ -25,12 +25,17 @@ def _string(value):
     return _DROPPED
 
 
-def permitted(request, key, model, names):
+def permitted(request, key, model, names, wrapped=None):
     """The `names` read from the object under `key`, which is required; a JSON object body that
-    lacks `key` is first wrapped under it, keeping only `model`'s column names."""
+    lacks `key` is first wrapped under it, keeping only the `wrapped` names (by default
+    `model`'s column names)."""
     data = request.data
     if isinstance(data, Mapping) and not isinstance(data, QueryDict) and key not in data:
-        columns = {field.attname for field in model._meta.concrete_fields}
+        columns = (
+            {field.attname for field in model._meta.concrete_fields}
+            if wrapped is None
+            else set(wrapped)
+        )
         data = {key: {name: value for name, value in data.items() if name in columns}}
     params = data.get(key) if isinstance(data, Mapping) else None
     if not isinstance(params, Mapping) or not params:
