@@ -1,0 +1,29 @@
+# .archon/factory-profile.yaml — written by the Archon `factory` workflow.
+# Edit freely. While this file exists the workflow never asks these questions again.
+# `secrets` lists environment-variable NAMES only; values stay on the machine that runs Archon.
+version: 1
+stack:
+  language: "Python"
+  framework: "Django"
+  test_command: "true"
+  lint_command: ""
+  build_command: ""
+  test_timeout_seconds: 1000
+  flaky_patterns: []
+repo:
+  remote: "origin"
+  base_branch: "main"
+  merge_strategy: "squash"
+  manual_merge_bases: ["main"]
+  # auto merges after a green merge gate; operator pauses at pr-approve for the operator's approval.
+  merge_approval: "auto"
+deploy:
+  command: "bin/local-up"
+  health_url: "http://127.0.0.1:8095/health"
+  wait_seconds: 60
+  rollback_command: "bin/local-up --ref <previous main sha>"
+monitoring:
+  provider: "none"
+  mcp_config: ""
+  window_minutes: 10
+secrets: []

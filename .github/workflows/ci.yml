@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          enable-cache: true
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          enable-cache: true
+      - run: uv sync --frozen
+      - run: uv run python manage.py makemigrations --check --dry-run --settings=config.settings.test
+      - run: uv run pytest -n auto
+      - run: uv run pytest scripts/ci/tests
+
+  published-tree:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          enable-cache: true
+      - name: Export the tree as it is published
+        run: |
+          mkdir "$RUNNER_TEMP/published"
+          git archive HEAD | tar -x -C "$RUNNER_TEMP/published"
+          cd "$RUNNER_TEMP/published"
+          rm -rf .claude .archon .github scripts/ci
+      - name: No reference to scripts/ci in the published tree
+        working-directory: ${{ runner.temp }}/published
+        run: "! grep -rn scripts/ci ."
+      - run: uv sync --frozen
+        working-directory: ${{ runner.temp }}/published
+      - name: Default test suite, no secrets set
+        working-directory: ${{ runner.temp }}/published
+        run: env -u DJANGO_SECRET_KEY -u SENTRY_DSN uv run pytest -n auto
+
+  local-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: Let bin/local-up clone this private repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh auth setup-git
+      - name: Smoke the API on a live local server
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LOCAL_SMOKE_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: uv run pytest -m smoke
+
+  pr-conventions:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check PR title and Type line
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: bash scripts/ci/pr-conventions.sh

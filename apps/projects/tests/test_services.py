@@ -1,9 +1,11 @@
 """Project services: the cached list and the writes."""
 
+import hashlib
 from datetime import timedelta
 
 import pytest
 from django.core.cache import cache
+from django.core.cache.backends.base import memcache_key_warnings
 
 from apps.projects import services
 from apps.projects.models import Project
@@ -154,8 +156,16 @@ class TestCache:
             f"projects:{user.id}:stats:count=3:updated={latest.isoformat()}:v1"
         )
         assert services.cache_key(user, "completed") == (
-            f"projects:{user.id}:stats:count=3:updated={latest.isoformat()}:filter:completed:v1"
+            f"projects:{user.id}:stats:count=3:updated={latest.isoformat()}"
+            f":filter:{hashlib.sha256(b'completed').hexdigest()}:v1"
         )
+
+    @pytest.mark.parametrize("task_status", ["\x1c", "has space", "x" * 300, "статус"])
+    def test_keeps_the_key_memcached_safe_for_any_filter(self, user, task_status):
+        key = services.cache_key(user, task_status)
+
+        assert list(memcache_key_warnings(key)) == []
+        assert key != services.cache_key(user, task_status + "!")
 
     def test_names_no_update_without_projects(self, make_user):
         other = make_user()

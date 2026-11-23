@@ -1,5 +1,6 @@
 """Project services: the cached list and the writes."""
 
+import hashlib
 from dataclasses import dataclass, field
 
 from django.core.cache import cache
@@ -26,9 +27,16 @@ def signature(records):
 
 
 def cache_key(user, task_status=None):
-    filter_part = [] if task_status is None else [f"filter:{task_status}"]
+    """The list's cache key. The status filter comes from the client, so it enters the key as a
+    SHA-256 digest: any value gives a short key without spaces or control characters, which
+    memcached would reject."""
+    filter_part = [] if task_status is None else [f"filter:{digest(task_status)}"]
     parts = [f"projects:{user.id}", signature(user.projects), *filter_part, "v1"]
     return ":".join(parts)
+
+
+def digest(value):
+    return hashlib.sha256(str(value).encode()).hexdigest()
 
 
 def with_owner_and_tasks(projects, tasks=None):
