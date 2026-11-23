@@ -66,7 +66,7 @@ Invalid records answer `422 {"errors": [...]}` with these messages, in this orde
 Both lists are cached for 15 minutes (Django's default cache) under keys derived from the
 database on each request, so any write to the list changes the key:
 
-- `projects:<user id>:stats:count=<n>:updated=<latest updated_at|none>[:filter:<status>]:v1`
+- `projects:<user id>:stats:count=<n>:updated=<latest updated_at|none>[:filter:<SHA-256 of the status>]:v1`
 - `tasks:<project id>:stats:count=<n>:updated=<latest updated_at|none>:v1`
 
 The timestamp is ISO 8601 to the microsecond. Saving or deleting a task touches its project and

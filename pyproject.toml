@@ -47,3 +47,4 @@ pythonpath = ["."]
 testpaths = ["tests", "apps"]
 addopts = "--strict-markers -m 'not smoke'"
 markers = ["smoke: runs bin/local-smoke against a live local server (uv run pytest -m smoke)"]
+filterwarnings = ["error::django.core.cache.backends.base.CacheKeyWarning"]
